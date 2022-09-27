@@ -43,9 +43,7 @@ public class LexicalAnalyzer {
         try (BufferedReader inputCode = new BufferedReader(new FileReader(path))) {
             String codeLine;
             while (Objects.nonNull(codeLine = inputCode.readLine())) {
-                for (String tmpWord : codeLine.split(" ")) {
-                    codeWords.append(tmpWord);
-                }
+                codeWords.append(codeLine);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -58,10 +56,39 @@ public class LexicalAnalyzer {
      */
     public void run() {
         // TODO: 自动机实现的词法分析过程
+        State curState = State.Initial;
 
-        for (Character letter : codeWords.toString().toCharArray()) {
-            System.out.println(letter);
-
+        for (Character character : codeWords.toString().toCharArray()) {
+            switch (curState) {
+                case Initial -> {
+                    if (isLetter(character)) {
+                        curState = State.ID;
+                    } else if (isDigit(character)) {
+                        curState = State.IntConst;
+                    } else if (isBlank(character)) {
+                    } else if (character == '*') {
+                        curState = State.Star;
+                    } else if (character == '=') {
+                        curState = State.Equal;
+                    } else if (character == '(') {
+                        curState = State.LeftBracket;
+                    } else if (character == ')') {
+                        curState = State.RightBracket;
+                    } else if (character == '+') {
+                        curState = State.Plus;
+                    } else if (character == '-') {
+                        curState = State.Minus;
+                    } else if (character == '/') {
+                        curState = State.Division;
+                    } else if (character == ';') {
+                        curState = State.Semicolon;
+                    } else if (character == ',') {
+                        curState = State.Comma;
+                    } else {
+                        throw new LexicalAnalyzeException("不合法的符号");
+                    }
+                }
+            }
         }
 
 
@@ -105,6 +132,38 @@ public class LexicalAnalyzer {
             StreamSupport.stream(getTokens().spliterator(), false).map(Token::toString).toList()
         );
     }
+
+    /**
+     * 自动机的状态
+     */
+    enum State {
+        Initial,
+        ID,
+        IntConst,
+        Star,
+        Equal,
+        LeftBracket,
+        RightBracket,
+        Plus,
+        Minus,
+        Division,
+        Semicolon,
+        Comma
+    }
+
+    /**
+     * 词法分析阶段的异常
+     */
+    static class LexicalAnalyzeException extends RuntimeException {
+        public LexicalAnalyzeException() {
+            super();
+        }
+
+        public LexicalAnalyzeException(String message) {
+            super(message);
+        }
+    }
+
 
 
 }
