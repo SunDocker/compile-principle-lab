@@ -108,14 +108,12 @@ public class SyntaxAnalyzer {
             var isError = false;
             switch (action.getKind()) {
                 case Shift -> {
-                    // TODO 是之前还是之后call？
-                    // callWhenInShift(statusStack.peek(), tokenDeque.peek());
+                    callWhenInShift(statusStack.peek(), tokenDeque.peek());
                     statusStack.push(action.getStatus());
                     symbolStack.push(new Symbol(tokenDeque.poll()));
                 }
                 case Reduce -> {
                     final var production = action.getProduction();
-                    // TODO 是之前还是之后call？
                     callWhenInReduce(statusStack.peek(), production);
                     var len = production.body().size();
                     while (len-- != 0) {

@@ -66,9 +66,9 @@ public class Main {
 
         // 各 Observer 输出结果
         productionCollector.dumpToFile(FilePathConfig.PARSER_PATH);
-        symbolTable.dumpTable(FilePathConfig.NEW_SYMBOL_TABLE);
         //TODO：实验二暂时注释
-        /*final var instructions = irGenerator.getIR();
+        /*symbolTable.dumpTable(FilePathConfig.NEW_SYMBOL_TABLE);
+        final var instructions = irGenerator.getIR();
         irGenerator.dumpIR(FilePathConfig.INTERMEDIATE_CODE_PATH);*/
 
         //TODO：实验二暂时注释
