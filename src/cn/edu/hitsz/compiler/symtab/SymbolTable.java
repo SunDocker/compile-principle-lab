@@ -1,10 +1,8 @@
 package cn.edu.hitsz.compiler.symtab;
 
-import cn.edu.hitsz.compiler.NotImplementedException;
 import cn.edu.hitsz.compiler.utils.FileUtils;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 符号表
