@@ -22,7 +22,10 @@ public class SymbolTable {
      * @throws RuntimeException 该符号在表中不存在
      */
     public SymbolTableEntry get(String text) {
-        //throw new NotImplementedException();
+        // TODO
+        if (!has(text)) {
+            throw new RuntimeException("该符号在表中不存在: " + text);
+        }
         return entries.stream()
                 .filter(entry -> entry.getText().equals(text))
                 .toList()
@@ -37,7 +40,10 @@ public class SymbolTable {
      * @throws RuntimeException 该符号已在表中存在
      */
     public SymbolTableEntry add(String text) {
-        //throw new NotImplementedException();
+        // TODO
+        if (has(text)) {
+            throw new RuntimeException("该符号已在表中存在: " + text);
+        }
         var entry = new SymbolTableEntry(text);
         entries.add(entry);
         return entry;
@@ -50,7 +56,7 @@ public class SymbolTable {
      * @return 该符号的条目是否位于符号表中
      */
     public boolean has(String text) {
-//        throw new NotImplementedException();
+        // TODO
         return entries.stream()
                 .anyMatch(entry -> entry.getText().equals(text));
     }
@@ -61,7 +67,7 @@ public class SymbolTable {
      * @return 符号表的所有条目
      */
     private Map<String, SymbolTableEntry> getAllEntries() {
-//        throw new NotImplementedException();
+        // TODO
         var map = new HashMap<String, SymbolTableEntry>();
         entries.forEach(entry -> map.put(entry.getText(), entry));
         return map;

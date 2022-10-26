@@ -62,7 +62,6 @@ public class LexicalAnalyzer {
      */
     public void run() {
         // TODO: 自动机实现的词法分析过程
-//        throw new NotImplementedException();
         var curState = State.Initial;
         var readChars = new StringBuilder();
 
@@ -83,7 +82,7 @@ public class LexicalAnalyzer {
                     case ',' -> State.Comma;
                     default -> {
                         if (Character.isLetter(character)) yield State.ID;
-                        else if (Character.isDigit(character)) yield State.IntConst;
+                        else if (Character.isDigit(character) && (character != '0')) yield State.IntConst;
                         else if (isBlank(character)) yield curState;
                         else throw new LexicalAnalyzeException("不合法的符号");
                     }
@@ -150,7 +149,6 @@ public class LexicalAnalyzer {
         // 词法分析过程可以使用 Stream 或 Iterator 实现按需分析
         // 亦可以直接分析完整个文件
         // 总之实现过程能转化为一列表即可
-//        throw new NotImplementedException();
         return tokens;
     }
 

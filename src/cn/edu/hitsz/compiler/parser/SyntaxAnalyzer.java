@@ -138,8 +138,6 @@ public class SyntaxAnalyzer {
                 throw new RuntimeException("语法分析出错");
             }
         }
-
-
     }
 
     static class Symbol {

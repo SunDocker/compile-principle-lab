@@ -40,7 +40,7 @@ public class SemanticAnalyzer implements ActionObserver {
         switch (production.index()) {
             case 4 -> { // S -> D id
                 // 获取标识符名字
-                // 产生式右部弹栈，并从栈中获取非终结符D的类型
+                // 产生式右部弹栈，并从栈中获取标识符id的名字和非终结符D的类型
                 var idName = synStk.pop(); // id
                 var type = synStk.pop(); // D
                 // 更新符号表中的类型信息
