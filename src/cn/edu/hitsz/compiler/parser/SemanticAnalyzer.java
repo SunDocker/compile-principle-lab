@@ -1,6 +1,5 @@
 package cn.edu.hitsz.compiler.parser;
 
-import cn.edu.hitsz.compiler.ir.IRVariable;
 import cn.edu.hitsz.compiler.lexer.Token;
 import cn.edu.hitsz.compiler.parser.table.Production;
 import cn.edu.hitsz.compiler.parser.table.Status;
@@ -21,7 +20,7 @@ public class SemanticAnalyzer implements ActionObserver {
     /**
      * 综合属性栈，负责记录类型信息和标识符名
      */
-    Deque<Object> synStk = new ArrayDeque<>();
+    Deque<LexVal> synStk = new ArrayDeque<>();
 
     @Override
     public void whenAccept(Status currentStatus) {
@@ -44,9 +43,9 @@ public class SemanticAnalyzer implements ActionObserver {
                 var idName = synStk.pop(); // id
                 var type = synStk.pop(); // D
                 // 更新符号表中的类型信息
-                table.get((String) idName).setType((SourceCodeType) type);
+                table.get(idName.getIdName()).setType(type.getSourceCodeType());
                 // 左部无需类型信息，压入空记录占位
-                synStk.push(SourceCodeType.Null); // S
+                synStk.push(new LexVal()); // S
             }
             case 5 -> { // D -> int
                 // 弹栈，获取类型信息，然后设置左部符号属性并将其压栈
@@ -59,7 +58,7 @@ public class SemanticAnalyzer implements ActionObserver {
                 while (symbolCnt-- != 0) {
                     synStk.pop();
                 }
-                synStk.push(SourceCodeType.Null);
+                synStk.push(new LexVal());
             }
         }
     }
@@ -70,7 +69,7 @@ public class SemanticAnalyzer implements ActionObserver {
         var tokenKind = currentToken.getKind().getIdentifier();
         if (tokenKind.equals("int")) {
             // 若是类型关键字终结符，则压入类型信息
-            synStk.push(SourceCodeType.Int);
+            synStk.push(new LexVal(SourceCodeType.Int));
         } else if (tokenKind.equals("id")) {
             // 若是id类终结符，则检查符号表中是否存在记录
             // 若存在，则压入变量标识符
@@ -79,10 +78,10 @@ public class SemanticAnalyzer implements ActionObserver {
                 // TODO: 错误处理
                 throw new RuntimeException("未在符号表中登记的标识符: " + val);
             }
-            synStk.push(val);
+            synStk.push(new LexVal(val));
         } else {
-            // 若不是类型关键字终结符，则压入空记录
-            synStk.push(SourceCodeType.Null);
+            // 若不是类型关键字终结符，也不是id类终结符，则压入空记录
+            synStk.push(new LexVal());
         }
     }
 
@@ -91,6 +90,46 @@ public class SemanticAnalyzer implements ActionObserver {
         // TODO: 设计你可能需要的符号表存储结构
         // 如果需要使用符号表的话, 可以将它或者它的一部分信息存起来, 比如使用一个成员变量存储
         this.table = table;
+    }
+
+    static class LexVal {
+        String idName;
+
+        SourceCodeType type;
+
+        public LexVal(SourceCodeType type) {
+            this.type = type;
+        }
+
+        public LexVal() {}
+
+        public LexVal(String idName) {
+            this.idName = idName;
+        }
+
+        public boolean isIdName(){
+            return this.idName != null;
+        }
+
+        public boolean isType(){
+            return this.type != null;
+        }
+
+        public String getIdName() {
+            if (isIdName()) {
+                return idName;
+            }
+            // TODO 异常信息
+            throw new RuntimeException("This lex val is not a name !");
+        }
+
+        public SourceCodeType getSourceCodeType() {
+            if (isType()) {
+                return type;
+            }
+            // TODO 异常信息
+            throw new RuntimeException("This symbol is not a source code type !");
+        }
     }
 }
 

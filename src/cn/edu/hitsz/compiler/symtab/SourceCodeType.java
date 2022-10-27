@@ -5,7 +5,5 @@ package cn.edu.hitsz.compiler.symtab;
  */
 public enum SourceCodeType {
     // 我们的源语言中只有 int 变量, 对应到 RISC-V 中的 32 位有符号整数类型.
-    Int,
-    // 空记录, 用于语法制导翻译中给综合属性栈占位
-    Null
+    Int
 }
