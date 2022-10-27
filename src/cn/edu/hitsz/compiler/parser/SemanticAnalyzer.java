@@ -33,7 +33,6 @@ public class SemanticAnalyzer implements ActionObserver {
     @Override
     public void whenReduce(Status currentStatus, Production production) {
         // TODO: 该过程在遇到 reduce production 时要采取的代码动作
-//        throw new NotImplementedException();
         // 执行除生成三地址码以外的语义动作
         // 根据产生式执行对应动作
         switch (production.index()) {
