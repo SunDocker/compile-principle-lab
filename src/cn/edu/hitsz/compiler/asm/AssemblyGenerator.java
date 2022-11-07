@@ -1,9 +1,9 @@
 package cn.edu.hitsz.compiler.asm;
 
 import cn.edu.hitsz.compiler.NotImplementedException;
-import cn.edu.hitsz.compiler.ir.Instruction;
+import cn.edu.hitsz.compiler.ir.*;
 
-import java.util.List;
+import java.util.*;
 
 
 /**
@@ -22,6 +22,11 @@ import java.util.List;
  */
 public class AssemblyGenerator {
 
+    List<Instruction> preprocessedInstructions;
+    Deque<String> riscFreeRegs;
+    Map<IRVariable, Integer> varLastUse;
+    BMap<IRVariable, String> varRegMap;
+
     /**
      * 加载前端提供的中间代码
      * <br>
@@ -32,7 +37,101 @@ public class AssemblyGenerator {
      */
     public void loadIR(List<Instruction> originInstructions) {
         // TODO: 读入前端提供的中间代码并生成所需要的信息
-        throw new NotImplementedException();
+        Integer insCnt = 0;
+        for (var ins : originInstructions) {
+            var insKind = ins.getKind();
+            if (insKind.isBinary()) {
+                // 两个操作数的指令
+                var lhs = ins.getLHS();
+                var rhs = ins.getRHS();
+                IRVariable res = ins.getResult();
+                if (lhs instanceof IRImmediate immLhs && rhs instanceof IRImmediate immRhs) {
+                    // 操作两个立即数的情况
+                    final var lhsVal = immLhs.getValue();
+                    final var rhsVal = immRhs.getValue();
+                    IRVariable irVar = IRVariable.temp();
+                    switch (insKind) {
+                        case ADD -> preprocessedInstructions.add(Instruction.createMov(irVar, IRImmediate.of(lhsVal + rhsVal)));
+                        case SUB -> preprocessedInstructions.add(Instruction.createMov(irVar, IRImmediate.of(lhsVal - rhsVal)));
+                        case MUL -> preprocessedInstructions.add(Instruction.createMov(irVar, IRImmediate.of(lhsVal * rhsVal)));
+                    }
+                    varLastUse.put(irVar, ++insCnt);
+                } else if (lhs instanceof IRImmediate || rhs instanceof IRImmediate) {
+                    // 操作一个立即数的情况
+                    if (insKind.equals(InstructionKind.MUL)) {
+                        // 一个立即数的乘法
+                        var irVar = IRVariable.temp();
+                        insCnt += 2;
+                        if (lhs instanceof IRImmediate immLhs) {
+                            preprocessedInstructions.add(Instruction.createMov(irVar, IRImmediate.of(immLhs.getValue())));
+                            preprocessedInstructions.add(Instruction.createMul(res, irVar, rhs));
+                            varLastUse.put((IRVariable) rhs, insCnt);
+                        } else {
+                            IRImmediate immRhs = (IRImmediate) rhs;
+                            preprocessedInstructions.add(Instruction.createMov(irVar, IRImmediate.of(immRhs.getValue())));
+                            preprocessedInstructions.add(Instruction.createMul(res, lhs, irVar));
+                            varLastUse.put((IRVariable) lhs, insCnt);
+                        }
+                        varLastUse.put(irVar, insCnt);
+                        varLastUse.put(res, insCnt);
+                    }
+                    else if ((lhs instanceof IRImmediate immLhs && insKind.equals(InstructionKind.SUB))) {
+                        // 左立即数减法
+                        var irVar = IRVariable.temp();
+                        insCnt += 2;
+                        preprocessedInstructions.add(Instruction.createMov(irVar, IRImmediate.of(immLhs.getValue())));
+                        preprocessedInstructions.add(Instruction.createSub(res, irVar, rhs));
+                        varLastUse.put((IRVariable) rhs, insCnt);
+                        varLastUse.put(irVar, insCnt);
+                        varLastUse.put(res, insCnt);
+                    } else {
+                        insCnt++;
+                        switch (insKind) {
+                            case ADD -> {
+                                if (lhs instanceof IRImmediate immLhs) {
+                                    preprocessedInstructions.add(Instruction.createAdd(res, rhs, IRImmediate.of(immLhs.getValue())));
+                                    varLastUse.put((IRVariable) rhs, insCnt);
+                                } else {
+                                    preprocessedInstructions.add(ins);
+                                    varLastUse.put((IRVariable) lhs, insCnt);
+                                }
+                            }
+                            case SUB -> {
+                                preprocessedInstructions.add(ins);
+                                varLastUse.put((IRVariable) lhs, insCnt);
+                            }
+                        }
+                        varLastUse.put(res, insCnt);
+                    }
+                } else {
+                    // 没有立即数的情况
+                    insCnt++;
+                    preprocessedInstructions.add(ins);
+                    varLastUse.put((IRVariable) rhs, insCnt);
+                    varLastUse.put((IRVariable) lhs, insCnt);
+                    varLastUse.put(res, insCnt);
+                }
+            } else {
+                // 一个操作数的指令
+                preprocessedInstructions.add(ins);
+                insCnt++;
+                // 这里不使用switch是为了遇到return直接break出for循环
+                if (insKind.equals(InstructionKind.RET)) {
+                    var ret = ins.getReturnValue();
+                    if (ret.isIRVariable()) {
+                        varLastUse.put((IRVariable) ret, insCnt);
+                    }
+                    break;
+                } else if (insKind.equals(InstructionKind.MOV)) {
+                    var fromVal = ins.getFrom();
+                    if (fromVal.isIRVariable()) {
+                        varLastUse.put((IRVariable) fromVal, insCnt);
+                        varLastUse.put(ins.getResult(), insCnt);
+                    }
+                }
+            }
+        }
+        System.out.println(varLastUse);
     }
 
 
@@ -47,6 +146,96 @@ public class AssemblyGenerator {
      */
     public void run() {
         // TODO: 执行寄存器分配与代码生成
+        for (var ins : preprocessedInstructions) {
+            var insKind = ins.getKind();
+            switch (insKind) {
+                case ADD -> {
+                    var riscIns = new StringBuilder();
+                    var lhs = ins.getLHS();
+                    var rhs = ins.getRHS();
+                    if (rhs.isImmediate()) {
+                        riscIns.append("addi ")
+                                .append(getReg(ins.getResult()))
+                                .append(' ')
+                                .append(getReg(lhs))
+                                .append(' ')
+                                .append(rhs);
+                        System.out.println(riscIns);
+                    } else {
+                        riscIns.append("add ")
+                                .append(getReg(ins.getResult()))
+                                .append(' ')
+                                .append(getReg(lhs))
+                                .append(' ')
+                                .append(getReg(rhs));
+                        System.out.println(riscIns);
+                    }
+                }
+                case SUB -> {
+                    var riscIns = new StringBuilder();
+                    var lhs = ins.getLHS();
+                    var rhs = ins.getRHS();
+                    if (rhs.isImmediate()) {
+                        riscIns.append("subi ")
+                                .append(getReg(ins.getResult()))
+                                .append(' ')
+                                .append(getReg(lhs))
+                                .append(' ')
+                                .append(rhs);
+                        System.out.println(riscIns);
+                    } else {
+                        riscIns.append("sub ")
+                                .append(getReg(ins.getResult()))
+                                .append(' ')
+                                .append(getReg(lhs))
+                                .append(' ')
+                                .append(getReg(rhs));
+                        System.out.println(riscIns);
+                    }
+                }
+                case MUL -> {
+                    var riscIns = new StringBuilder();
+                    riscIns.append("mul ")
+                            .append(getReg(ins.getResult()))
+                            .append(' ')
+                            .append(getReg(ins.getRHS()))
+                            .append(' ')
+                            .append(getReg(ins.getLHS()));
+                    System.out.println(riscIns);
+                }
+                case MOV -> {
+                    var riscIns = new StringBuilder();
+                    var fromVal = ins.getFrom();
+                    if (fromVal.isImmediate()) {
+                        riscIns.append("li ")
+                                .append(getReg(ins.getResult()))
+                                .append(' ')
+                                .append(fromVal);
+                        System.out.println(riscIns);
+                    } else {
+                        riscIns.append("mv ")
+                                .append(getReg(ins.getResult()))
+                                .append(' ')
+                                .append(getReg(fromVal));
+                        System.out.println(riscIns);
+                    }
+                }
+                case RET -> {
+                    var riscIns = new StringBuilder();
+                    var retVal = ins.getReturnValue();
+                    riscIns.append("mv a0")
+                            .append(' ');
+                    if (retVal.isImmediate()) {
+                        riscIns.append(retVal);
+                    } else {
+                        riscIns.append(getReg(retVal));
+                    }
+                    System.out.println(riscIns);
+                }
+            }
+        }
+        System.out.println(varRegMap.KVmap);
+        System.out.println(varRegMap.VKmap);
         throw new NotImplementedException();
     }
 
@@ -58,7 +247,70 @@ public class AssemblyGenerator {
      */
     public void dump(String path) {
         // TODO: 输出汇编代码到文件
+
         throw new NotImplementedException();
+    }
+
+    public AssemblyGenerator() {
+        preprocessedInstructions = new ArrayList<>();
+        riscFreeRegs = new ArrayDeque<>(Arrays.asList("t0", "t1", "t2", "t3", "t4", "t5", "t6"));
+        varRegMap = new BMap<>();
+        varLastUse = new HashMap<>();
+    }
+
+    private String getReg(IRValue irVal) {
+        if (irVal instanceof IRVariable irVar) {
+            if (varRegMap.containsKey(irVar)) {
+                return varRegMap.getByKey(irVar);
+            }
+            if (riscFreeRegs.isEmpty()) {
+                return null;
+            } else {
+                String reg = riscFreeRegs.poll();
+                varRegMap.replace(irVar, reg);
+                return reg;
+            }
+        }
+        throw new RuntimeException("不需要为立即数分配寄存器");
+    }
+
+    // 双射
+    public static class BMap<K, V> {
+        private final Map<K, V> KVmap = new HashMap<>();
+        private final Map<V, K> VKmap = new HashMap<>();
+
+        public void removeByKey(K key) {
+            VKmap.remove(KVmap.remove(key));
+        }
+
+        public void removeByValue(V value) {
+            KVmap.remove(VKmap.remove(value));
+
+        }
+
+        public boolean containsKey(K key) {
+            return KVmap.containsKey(key);
+        }
+
+        public boolean containsValue(V value) {
+            return VKmap.containsKey(value);
+        }
+
+        public void replace(K key, V value) {
+            // 对于双射关系, 将会删除交叉项
+            removeByKey(key);
+            removeByValue(value);
+            KVmap.put(key, value);
+            VKmap.put(value, key);
+        }
+
+        public V getByKey(K key) {
+            return KVmap.get(key);
+        }
+
+        public K getByValue(V value) {
+            return VKmap.get(value);
+        }
     }
 }
 
