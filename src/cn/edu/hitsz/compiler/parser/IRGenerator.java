@@ -52,7 +52,6 @@ public class IRGenerator implements ActionObserver {
             // 若存在，则压入变量标识符
             var val = currentToken.getText();
             if (!table.has(val)) {
-                // TODO: 错误处理
                 throw new RuntimeException("未在符号表中登记的标识符: " + val);
             }
             synStk.push(IRVariable.named(val));
@@ -165,7 +164,6 @@ public class IRGenerator implements ActionObserver {
     @Override
     public void setSymbolTable(SymbolTable table) {
         // TODO
-//        throw new NotImplementedException();
         this.table = table;
     }
 

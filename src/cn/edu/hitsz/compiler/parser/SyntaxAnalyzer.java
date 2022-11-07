@@ -131,7 +131,6 @@ public class SyntaxAnalyzer {
                 case Error -> isError = true;
             }
 
-            // TODO: 关于Accept和Error的处理
             if (isAccept) {
                 break;
             } else if (isError) {
@@ -166,7 +165,6 @@ public class SyntaxAnalyzer {
             if (isToken()) {
                 return token;
             }
-            // TODO 异常信息
             throw new RuntimeException("This symbol is not a token !");
         }
 
@@ -174,7 +172,6 @@ public class SyntaxAnalyzer {
             if (isNonTerminal()) {
                 return nonTerminal;
             }
-            // TODO 异常信息
             throw new RuntimeException("This symbol is not a non terminal !");
         }
     }

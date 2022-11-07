@@ -3,6 +3,9 @@ package cn.edu.hitsz.compiler.asm;
 import cn.edu.hitsz.compiler.NotImplementedException;
 import cn.edu.hitsz.compiler.ir.*;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 
 
@@ -25,7 +28,8 @@ public class AssemblyGenerator {
     List<Instruction> preprocessedInstructions;
     Deque<String> riscFreeRegs;
     Map<IRVariable, Integer> varLastUse;
-    BMap<IRVariable, String> varRegMap;
+    Map<IRVariable, String> varRegMap;
+    List<String> riscInstructions;
 
     /**
      * 加载前端提供的中间代码
@@ -131,7 +135,6 @@ public class AssemblyGenerator {
                 }
             }
         }
-        System.out.println(varLastUse);
     }
 
 
@@ -146,97 +149,92 @@ public class AssemblyGenerator {
      */
     public void run() {
         // TODO: 执行寄存器分配与代码生成
+        Integer insCnt = 0;
         for (var ins : preprocessedInstructions) {
+            insCnt++;
             var insKind = ins.getKind();
+            var riscIns = new StringBuilder();
             switch (insKind) {
                 case ADD -> {
-                    var riscIns = new StringBuilder();
                     var lhs = ins.getLHS();
                     var rhs = ins.getRHS();
                     if (rhs.isImmediate()) {
                         riscIns.append("addi ")
-                                .append(getReg(ins.getResult()))
-                                .append(' ')
-                                .append(getReg(lhs))
-                                .append(' ')
+                                .append(getReg(insCnt, ins.getResult()))
+                                .append(", ")
+                                .append(getReg(insCnt, lhs))
+                                .append(", ")
                                 .append(rhs);
-                        System.out.println(riscIns);
+                        riscInstructions.add(riscIns.toString());
                     } else {
                         riscIns.append("add ")
-                                .append(getReg(ins.getResult()))
-                                .append(' ')
-                                .append(getReg(lhs))
-                                .append(' ')
-                                .append(getReg(rhs));
-                        System.out.println(riscIns);
+                                .append(getReg(insCnt, ins.getResult()))
+                                .append(", ")
+                                .append(getReg(insCnt, lhs))
+                                .append(", ")
+                                .append(getReg(insCnt, rhs));
+                        riscInstructions.add(riscIns.toString());
                     }
                 }
                 case SUB -> {
-                    var riscIns = new StringBuilder();
                     var lhs = ins.getLHS();
                     var rhs = ins.getRHS();
                     if (rhs.isImmediate()) {
                         riscIns.append("subi ")
-                                .append(getReg(ins.getResult()))
-                                .append(' ')
-                                .append(getReg(lhs))
-                                .append(' ')
+                                .append(getReg(insCnt, ins.getResult()))
+                                .append(", ")
+                                .append(getReg(insCnt, lhs))
+                                .append(", ")
                                 .append(rhs);
-                        System.out.println(riscIns);
+                        riscInstructions.add(riscIns.toString());
                     } else {
                         riscIns.append("sub ")
-                                .append(getReg(ins.getResult()))
-                                .append(' ')
-                                .append(getReg(lhs))
-                                .append(' ')
-                                .append(getReg(rhs));
-                        System.out.println(riscIns);
+                                .append(getReg(insCnt, ins.getResult()))
+                                .append(", ")
+                                .append(getReg(insCnt, lhs))
+                                .append(", ")
+                                .append(getReg(insCnt, rhs));
+                        riscInstructions.add(riscIns.toString());
                     }
                 }
                 case MUL -> {
-                    var riscIns = new StringBuilder();
                     riscIns.append("mul ")
-                            .append(getReg(ins.getResult()))
-                            .append(' ')
-                            .append(getReg(ins.getRHS()))
-                            .append(' ')
-                            .append(getReg(ins.getLHS()));
-                    System.out.println(riscIns);
+                            .append(getReg(insCnt, ins.getResult()))
+                            .append(", ")
+                            .append(getReg(insCnt, ins.getRHS()))
+                            .append(", ")
+                            .append(getReg(insCnt, ins.getLHS()));
+                    riscInstructions.add(riscIns.toString());
                 }
                 case MOV -> {
-                    var riscIns = new StringBuilder();
                     var fromVal = ins.getFrom();
                     if (fromVal.isImmediate()) {
                         riscIns.append("li ")
-                                .append(getReg(ins.getResult()))
-                                .append(' ')
+                                .append(getReg(insCnt, ins.getResult()))
+                                .append(", ")
                                 .append(fromVal);
-                        System.out.println(riscIns);
+                        riscInstructions.add(riscIns.toString());
                     } else {
                         riscIns.append("mv ")
-                                .append(getReg(ins.getResult()))
-                                .append(' ')
-                                .append(getReg(fromVal));
-                        System.out.println(riscIns);
+                                .append(getReg(insCnt, ins.getResult()))
+                                .append(", ")
+                                .append(getReg(insCnt, fromVal));
+                        riscInstructions.add(riscIns.toString());
                     }
                 }
                 case RET -> {
-                    var riscIns = new StringBuilder();
                     var retVal = ins.getReturnValue();
                     riscIns.append("mv a0")
-                            .append(' ');
+                            .append(", ");
                     if (retVal.isImmediate()) {
                         riscIns.append(retVal);
                     } else {
-                        riscIns.append(getReg(retVal));
+                        riscIns.append(getReg(insCnt, retVal));
                     }
-                    System.out.println(riscIns);
+                    riscInstructions.add(riscIns.toString());
                 }
             }
         }
-        System.out.println(varRegMap.KVmap);
-        System.out.println(varRegMap.VKmap);
-        throw new NotImplementedException();
     }
 
 
@@ -247,70 +245,48 @@ public class AssemblyGenerator {
      */
     public void dump(String path) {
         // TODO: 输出汇编代码到文件
+        try (var bw = new BufferedWriter(new FileWriter(path))) {
+            bw.write(".text\n");
+            for (var ins : riscInstructions) {
+                bw.write('\t' + ins + '\n');
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
-        throw new NotImplementedException();
     }
 
     public AssemblyGenerator() {
         preprocessedInstructions = new ArrayList<>();
         riscFreeRegs = new ArrayDeque<>(Arrays.asList("t0", "t1", "t2", "t3", "t4", "t5", "t6"));
-        varRegMap = new BMap<>();
+        varRegMap = new HashMap<>();
         varLastUse = new HashMap<>();
+        riscInstructions = new ArrayList<>();
     }
 
-    private String getReg(IRValue irVal) {
+    private String getReg(Integer insCnt, IRValue irVal) {
         if (irVal instanceof IRVariable irVar) {
             if (varRegMap.containsKey(irVar)) {
-                return varRegMap.getByKey(irVar);
+                return varRegMap.get(irVar);
             }
             if (riscFreeRegs.isEmpty()) {
-                return null;
+                for (var keyVar : varRegMap.keySet()) {
+                    if (varLastUse.get(keyVar) < insCnt) {
+                        String reg = varRegMap.get(keyVar);
+                        varRegMap.remove(keyVar);
+                        varRegMap.put(irVar, reg);
+                        return reg;
+                    }
+                }
+                throw new RuntimeException("第" + insCnt + "指令的寄存器不足");
             } else {
                 String reg = riscFreeRegs.poll();
-                varRegMap.replace(irVar, reg);
+                varRegMap.put(irVar, reg);
                 return reg;
             }
         }
         throw new RuntimeException("不需要为立即数分配寄存器");
     }
 
-    // 双射
-    public static class BMap<K, V> {
-        private final Map<K, V> KVmap = new HashMap<>();
-        private final Map<V, K> VKmap = new HashMap<>();
-
-        public void removeByKey(K key) {
-            VKmap.remove(KVmap.remove(key));
-        }
-
-        public void removeByValue(V value) {
-            KVmap.remove(VKmap.remove(value));
-
-        }
-
-        public boolean containsKey(K key) {
-            return KVmap.containsKey(key);
-        }
-
-        public boolean containsValue(V value) {
-            return VKmap.containsKey(value);
-        }
-
-        public void replace(K key, V value) {
-            // 对于双射关系, 将会删除交叉项
-            removeByKey(key);
-            removeByValue(value);
-            KVmap.put(key, value);
-            VKmap.put(value, key);
-        }
-
-        public V getByKey(K key) {
-            return KVmap.get(key);
-        }
-
-        public K getByValue(V value) {
-            return VKmap.get(value);
-        }
-    }
 }
 

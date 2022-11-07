@@ -11,3 +11,5 @@ template/
 
 # for python script
 __pycache__
+
+*.jar
